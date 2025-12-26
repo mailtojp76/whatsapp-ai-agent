@@ -1,7 +1,14 @@
+import logging
 import os
 
 import requests
 from flask import Flask, jsonify, request
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -27,7 +34,7 @@ def health():
 # =====================
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
-
+    logger.info(f"wehook triggered1")
     # ✅ Step 1: Webhook verification
     if request.method == "GET":
         mode = request.args.get("hub.mode")
@@ -43,7 +50,7 @@ def webhook():
 
     # ✅ Step 2: Receive messages
     data = request.get_json(silent=True)
-    print("Incoming payload:", data)
+    logger.info(f"Incoming payload: {data}")
 
     try:
         entry = data["entry"][0]
@@ -55,8 +62,9 @@ def webhook():
             sender = message["from"]
             text = message["text"]["body"].strip().lower()
 
-            print("Sender:", sender)
-            print("Text received:", text)
+            logger.info(f"Sender: {sender}")
+            logger.info(f"Text received: {text}")
+            logger.error(f"Error processing message: {e}")
 
             reply = ai_reply(text)
             send_whatsapp_message(sender, reply)
