@@ -71,6 +71,7 @@ def webhook():
 
     except Exception as e:
         print("Error processing message:", e)
+        logger.error(f"Error processing message: {e}")
 
     return jsonify({"status": "received"}), 200
 
