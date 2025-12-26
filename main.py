@@ -4,21 +4,22 @@ import os
 import requests
 from flask import Flask, jsonify, request
 
+# =====================
+# LOGGING CONFIG
+# =====================
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-VERIFY_TOKEN = "my_verify_token_123"
 # =====================
-# CONFIG
+# CONFIG (ENV VARS)
 # =====================
 VERIFY_TOKEN = "my_verify_token_123"
-ACCESS_TOKEN = "EAATTWBiJcfABQQe9m5yRmgxZCm0wNLoE2Qx40WUP69A3Ltd2ZCpDfzwuHH7kEuT3UQZBzZCmDqSw0L50abxCmNimvUA5sbv9Yv1xKoykllZCZBtgHucxnXc9ZBeLSmwZAcpdeQqRZBAphg4uYPZAVEP9XckrQ96TrgB4FbI7Nq4PeiZCQxYPgaMTQmyfiqxYiSZCuYNNawWvhEZBfZBJFCXq4jy3sUyiUedx8bvo2UYB1KFhZAfFO5pn586Ijh83dEvUvGD9qWLKOUHXBvef9dAAlAnEtpl2mVZC"
-PHONE_NUMBER_ID = "947839265078025"
+ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN")
+PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 
 
 # =====================
@@ -34,28 +35,30 @@ def health():
 # =====================
 @app.route("/webhook", methods=["GET", "POST"])
 def webhook():
-    logger.info(f"wehook triggered1")
-    # ✅ Step 1: Webhook verification
+    logger.info("Webhook hit")
+
+    # ✅ Verification
     if request.method == "GET":
         mode = request.args.get("hub.mode")
         token = request.args.get("hub.verify_token")
         challenge = request.args.get("hub.challenge")
 
         if mode == "subscribe" and token == VERIFY_TOKEN:
-            print("Webhook verified successfully")
+            logger.info("Webhook verified successfully")
             return challenge, 200
-        else:
-            print("Webhook verification failed")
-            return "Forbidden", 403
 
-    # ✅ Step 2: Receive messages
+        logger.warning("Webhook verification failed")
+        return "Forbidden", 403
+
+    # ✅ Incoming message
     data = request.get_json(silent=True)
     logger.info(f"Incoming payload: {data}")
 
+    if not data:
+        return jsonify({"status": "no data"}), 200
+
     try:
-        entry = data["entry"][0]
-        changes = entry["changes"][0]
-        value = changes["value"]
+        value = data["entry"][0]["changes"][0]["value"]
 
         if "messages" in value:
             message = value["messages"][0]
@@ -64,32 +67,30 @@ def webhook():
 
             logger.info(f"Sender: {sender}")
             logger.info(f"Text received: {text}")
-            logger.error(f"Error processing message: {e}")
 
             reply = ai_reply(text)
             send_whatsapp_message(sender, reply)
 
     except Exception as e:
-        print("Error processing message:", e)
-        logger.error(f"Error processing message: {e}")
+        logger.exception("Error processing message")
 
     return jsonify({"status": "received"}), 200
 
 
 # =====================
-# SIMPLE AI FUNCTION
+# SIMPLE AI LOGIC
 # =====================
 def ai_reply(text: str) -> str:
     if text in ["hi", "hello", "hey"]:
         return "Hello 👋 How can I help you today?"
     elif text == "help":
-        return "Here are some things you can try:\n" "• hi\n" "• pricing\n" "• contact"
+        return "Try:\n• hi\n• pricing\n• contact"
     elif text == "pricing":
         return "Our pricing starts at ₹999/month 💰"
     elif text == "contact":
-        return "You can reach us at support@example.com 📧"
+        return "Contact us at support@example.com 📧"
     else:
-        return "🤖 I’m still learning.\n" "Try typing *hi* or *help*."
+        return "🤖 I’m still learning. Try *hi* or *help*."
 
 
 # =====================
@@ -106,37 +107,13 @@ def send_whatsapp_message(to, text):
     }
 
     response = requests.post(url, json=payload, headers=headers)
-    print("Send response:", response.status_code, response.text)
+    logger.info(f"WhatsApp send status: {response.status_code}")
+    logger.info(f"WhatsApp response: {response.text}")
 
 
-# @app.route("/", methods=["GET"])
-# def health():
-#     return "Webhook is live 🚀"
-
-
-# @app.route("/webhook", methods=["GET", "POST"])
-# def webhook():
-
-#     # ✅ Step 1: Webhook verification (Meta calls this)
-#     if request.method == "GET":
-#         mode = request.args.get("hub.mode")
-#         token = request.args.get("hub.verify_token")
-#         challenge = request.args.get("hub.challenge")
-
-#         if mode == "subscribe" and token == VERIFY_TOKEN:
-#             print("Webhook verified successfully")
-#             return challenge, 200
-#         else:
-#             print("Webhook verification failed")
-#             return "Forbidden", 403
-
-#     # ✅ Step 2: Incoming messages (POST)
-#     data = request.get_json(silent=True)
-#     print("Incoming payload:", data)
-
-#     return jsonify({"status": "received"}), 200
-
-
+# =====================
+# START
+# =====================
 if __name__ == "__main__":
-    port = 5000
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
