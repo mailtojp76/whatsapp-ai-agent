@@ -55,9 +55,10 @@ def webhook():
             sender = message["from"]
             text = message["text"]["body"].strip().lower()
 
-            # 🤖 SIMPLE AI LOGIC
-            reply = ai_reply(text)
+            print("Sender:", sender)
+            print("Text received:", text)
 
+            reply = ai_reply(text)
             send_whatsapp_message(sender, reply)
 
     except Exception as e:
