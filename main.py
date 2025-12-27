@@ -23,7 +23,7 @@ PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 
 
 # =====================
-# HEALTH CHECK
+# HEALTH
 # =====================
 @app.route("/", methods=["GET"])
 def health():
@@ -31,26 +31,31 @@ def health():
 
 
 # =====================
-# WEBHOOK
+# WEBHOOK VERIFY (GET)
 # =====================
-@app.route("/webhook", methods=["GET", "POST"])
-def webhook():
-    logger.info("Webhook hit")
+@app.route("/webhook", methods=["GET"])
+def verify_webhook():
+    logger.info("Webhook verification hit")
 
-    # ✅ Verification
-    if request.method == "GET":
-        mode = request.args.get("hub.mode")
-        token = request.args.get("hub.verify_token")
-        challenge = request.args.get("hub.challenge")
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
 
-        if mode == "subscribe" and token == VERIFY_TOKEN:
-            logger.info("Webhook verified successfully")
-            return challenge, 200
+    if mode == "subscribe" and token == VERIFY_TOKEN:
+        logger.info("Webhook verified successfully")
+        return challenge, 200
 
-        logger.warning("Webhook verification failed")
-        return "Forbidden", 403
+    logger.warning("Webhook verification failed")
+    return "Forbidden", 403
 
-    # ✅ Incoming message
+
+# =====================
+# WEBHOOK MESSAGE (POST)
+# =====================
+@app.route("/webhook", methods=["POST"])
+def receive_message():
+    logger.info("Webhook POST hit")
+
     data = request.get_json(silent=True)
     logger.info(f"Incoming payload: {data}")
 
@@ -71,7 +76,7 @@ def webhook():
             reply = ai_reply(text)
             send_whatsapp_message(sender, reply)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error processing message")
 
     return jsonify({"status": "received"}), 200
