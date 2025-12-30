@@ -1,9 +1,9 @@
 import json
-import os
 import logging
+import os
 
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 
 # =====================
 # LOGGING CONFIG
@@ -25,14 +25,18 @@ PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "YOUR_PHONE_NUMBER_ID")
 QUESTIONS_FILE = "questions_master.json"
 ANSWERS_FILE = "loan_user_answers_session.jsonl"
 
+
 # Load questions at startup
 def load_questions():
     with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
 QUESTIONS = load_questions()
 
 # User state tracking in-memory
 USER_STATES = {}
+
 
 # =====================
 # HEALTH CHECK
@@ -40,6 +44,7 @@ USER_STATES = {}
 @app.route("/", methods=["GET"])
 def health():
     return "Webhook is live 🚀"
+
 
 # =====================
 # WHATSAPP WEBHOOK VERIFY (GET)
@@ -58,6 +63,7 @@ def verify_webhook():
 
     logger.warning("Webhook verification failed")
     return "Forbidden", 403
+
 
 # =====================
 # WHATSAPP WEBHOOK MESSAGE (POST)
@@ -111,7 +117,12 @@ def receive_message():
                 else:
                     # Complete, store and summarize
                     store_user_answers(sender, state["answers"])
-                    summary = "\n".join([f"{i+1}. {a['key'].replace('_',' ').title()}: {a['answer']}" for i, a in enumerate(state["answers"])])
+                    summary = "\n".join(
+                        [
+                            f"{i+1}. {a['key'].replace('_',' ').title()}: {a['answer']}"
+                            for i, a in enumerate(state["answers"])
+                        ]
+                    )
                     reply = "Thank you! Your application is submitted:\n\n" + summary
                     del USER_STATES[sender]
                 send_whatsapp_message(sender, reply)
@@ -121,6 +132,7 @@ def receive_message():
     except Exception:
         logger.exception("Error processing message")
     return jsonify({"status": "received"}), 200
+
 
 # =====================
 # FORMAT QUESTION
@@ -132,6 +144,7 @@ def format_question(idx):
         body += f"{i}. {choice}\n"
     body += "\nReply with the number or option."
     return body
+
 
 # =====================
 # AI FALLBACK
@@ -149,6 +162,7 @@ def ai_reply(text: str) -> str:
     else:
         return "Type 'loan' to check home loan eligibility."
 
+
 # =====================
 # SEND WHATSAPP MESSAGE
 # =====================
@@ -160,11 +174,13 @@ def send_whatsapp_message(to, text):
         "Content-Type": "application/json",
     }
     try:
+        logger.info(f"WhatsApp send payload: {payload}")
         response = requests.post(url, json=payload, headers=headers)
         logger.info(f"WhatsApp send status: {response.status_code}")
         logger.info(f"WhatsApp response: {response.text}")
     except Exception as e:
         logger.error(f"Failed to send WhatsApp message to [{to}]: {e}")
+
 
 # =====================
 # STORE ANSWERS IN FILE
@@ -173,6 +189,7 @@ def store_user_answers(phone, answers):
     entry = {"phone": phone, "answers": answers}
     with open(ANSWERS_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
 
 # =====================
 # MAIN
