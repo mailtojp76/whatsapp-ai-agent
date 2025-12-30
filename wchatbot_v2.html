@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Home Loan Eligibility Chatbot</title>
+  <meta name="color-scheme" content="light dark">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+    }
+    .container {
+      max-width: 700px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 30px 20px 40px 20px;
+      border-radius: 8px;
+    }
+    h2 {
+      text-align: center;
+      color: #1a73e8;
+    }
+    #chat-area {
+      min-height: 150px;
+      margin-bottom: 30px;
+    }
+    .chat-msg.user {
+      background: #1a73e8;
+      color: #fff;
+      margin: 8px 0 8px auto;
+      text-align: right;
+      padding: 8px 16px;
+      border-radius: 8px 8px 2px 8px;
+      display: inline-block;
+      max-width: 80%;
+    }
+    .chat-msg.bot {
+      background: #e2eafd;
+      color: #0a223a;
+      margin: 8px auto 8px 0;
+      text-align: left;
+      padding: 8px 16px;
+      border-radius: 8px 8px 8px 2px;
+      display: inline-block;
+      max-width: 80%;
+    }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .options button {
+      padding: 9px 18px;
+      border: 1px solid #1a73e8;
+      background: #fff;
+      color: #1a73e8;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-bottom: 7px;
+      transition: background .16s;
+    }
+    .options button:hover {
+      background: #1a73e8;
+      color: #fff;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🏡 Home Loan Basic Eligibility Chatbot</h2>
+    <div id="chat-area"></div>
+    <div id="options-area"></div>
+  </div>
+  <script>
+    // ------- Configuration -------
+    // Your API endpoint that will receive the form answers
+    const API_URL = 'https://whatsapp-ai-agent-eley.onrender.com/webhook'; // Change to your real API url
+
+    // ------- Question Flow -------
+    const questions = [
+      {
+        q: "1. Employment Type?",
+        key: "employment_type",
+        choices: ["Salaried", "Self-Employed", "Professional"]
+      },
+      {
+        q: "2. Age Group?",
+        key: "age_group",
+        choices: ["Below 21", "21 – 30", "31 – 45", "46 – 60"]
+      },
+      {
+        q: "3. Monthly Income?",
+        key: "monthly_income",
+        choices: ["Below ₹30,000", "₹30,000 – ₹50,000", "₹50,001 – ₹1,00,000", "Above ₹1,00,000"]
+      },
+      {
+        q: "4. Existing Loan / EMI?",
+        key: "existing_loan",
+        choices: ["No Existing Loan", "₹5,000 – ₹10,000", "₹10,001 – ₹25,000", "Above ₹25,000"]
+      },
+      {
+        q: "5. Approximate CIBIL Score?",
+        key: "cibil_score",
+        choices: ["750 & above", "700 – 749", "650 – 699", "Not sure"]
+      },
+      {
+        q: "6. Property Type?",
+        key: "property_type",
+        choices: ["Ready to Move", "Under Construction", "Plot + Construction", "Resale Property"]
+      },
+      {
+        q: "7. Property Value?",
+        key: "property_value",
+        choices: ["₹40 – ₹50 Lakhs", "₹50 – ₹65 Lakhs", "Above ₹65 Lakhs"]
+      },
+      {
+        q: "8. Loan Amount Required?",
+        key: "loan_required",
+        choices: ["₹40 Lakhs", "₹45 Lakhs", "₹50 Lakhs"]
+      },
+      {
+        q: "9. Down Payment Ready?",
+        key: "down_payment",
+        choices: ["Yes (10–20%)", "Yes (20% & above)", "Not yet"]
+      },
+      {
+        q: "10. Location of Property City?",
+        key: "property_city",
+        choices: ["Chennai", "Bengaluru", "Hyderabad", "Other City"]
+      }
+    ];
+
+    // ------- State -------
+    let answers = {};
+    let currentQuestion = 0;
+
+    // ------- DOM Elements -------
+    const chatArea = document.getElementById('chat-area');
+    const optionsArea = document.getElementById('options-area');
+
+    // ------- Functions -------
+    function appendBotMsg(text) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg bot';
+      div.textContent = text;
+      chatArea.appendChild(div);
+      chatArea.scrollTop = chatArea.scrollHeight;
+    }
+    function appendUserMsg(text) {
+      const div = document.createElement('div');
+      div.className = 'chat-msg user';
+      div.textContent = text;
+      chatArea.appendChild(div);
+      chatArea.scrollTop = chatArea.scrollHeight;
+    }
+    function showQuestion(idx) {
+      optionsArea.innerHTML = ''; // Clear previous
+      if(idx >= questions.length) {
+        appendBotMsg("Thank you! Calculating eligibility...");
+        sendToApiViaWebhook(answers).then(res => {
+          // Customize handling as per your API's response (expects 'result' field here)
+          let msg = (res && res.result) ? res.result : "Your eligibility has been received.";
+          appendBotMsg(msg);
+          optionsArea.innerHTML = ''; // No more questions
+        }).catch(() => {
+          appendBotMsg("Failed to connect to the eligibility service.");
+        });
+        return;
+      }
+      let q = questions[idx];
+      appendBotMsg(q.q);
+      let opts = document.createElement('div');
+      opts.className = 'options';
+      for (let choice of q.choices) {
+        let btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = choice;
+        btn.onclick = () => {
+          appendUserMsg(choice);
+          answers[q.key] = choice;
+          // Prepare partial answers for the API call (optional, remove if only want to call at end)
+          // sendToApi(answers); // <--- If you want to send at each step (optional)
+          sendToApiViaWebhook(answers);
+          currentQuestion++;
+          showQuestion(currentQuestion);
+        };
+        opts.appendChild(btn);
+      }
+      optionsArea.appendChild(opts);
+    }
+    async function sendToApiViaWebhook(userMessage) {
+  const accessToken = 'EAATTWBiJcfABQTZBj2eFn7gZCcLbkQv8vv1a8QMIDY1ZBpn1n1TVZBrtqJEPlj5ZAZBk2wRKhrGrwHNyRKR0ijNv3kwVTTls4XFF7ieOaN3t08RrZCzAtWEuUMsoENlJGugkodZBqoxdPXXCk225s39qE9bXBFJKWw9aMOQZBQpYR7HEPJr3CNPE78bwEZArm0hvBzrEjAwcBB16UI7I2Mqiw0s3PdJyyKZCrwNRs2ibswaDSjssMIAeqTU3cTRHu6fCZBe6ctq6js3HPT1qVYPaXSge1OMN'; // Replace with the real token
+  const apiUrl = 'https://whatsapp-ai-agent-eley.onrender.com/webhook';
+  // Build the payload
+  const payload = {
+    "object": "whatsapp_business_account",
+    "entry": [
+      {
+        "id": "1221152876553645", // Use your actual WA Business Account ID
+        "changes": [
+          {
+            "value": {
+              "messages": [
+                {
+                  "from": "919884526782", // Put sender phone number or user identifier here
+                  "id": "wamid.ID.SAMPLE123", // Generate a unique message id if needed
+                  "timestamp": Math.floor(Date.now()/1000).toString(),
+                  "text": {
+                    "body": userMessage // This is the message/answer user entered
+                  },
+                  "type": "text"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "947839265078025",
+                "display_phone_number": "+15551541690"
+              }
+            },
+            "field": "messages"
+          }
+        ]
+      }
+    ]
+  };
+
+  try {
+    const resp = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+       // 'Authorization': 'Bearer ' + accessToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error('API error');
+    // Optional: parse and return the result for further chatbot action
+    return await resp.json();
+  } catch (err) {
+    console.error('API call failed', err);
+    return null;
+  }
+}
+
+    // ------- Start -------
+    appendBotMsg("Welcome! Let's check your home loan basic eligibility. Ready?");
+    setTimeout(() => showQuestion(currentQuestion), 700);
+  </script>
+</body>
+</html>
