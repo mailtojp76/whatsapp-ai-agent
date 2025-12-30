@@ -1,0 +1,52 @@
+[
+    {
+        "key": "employment_type",
+        "text": "1. Employment Type?",
+        "choices": ["Salaried", "Self-Employed", "Professional"]
+    },
+    {
+        "key": "age_group",
+        "text": "2. Age Group?",
+        "choices": ["Below 21", "21 – 30", "31 – 45", "46 – 60"]
+    },
+    {
+        "key": "monthly_income",
+        "text": "3. Monthly Income?",
+        "choices": ["Below ₹30,000", "₹30,000 – ₹50,000", "₹50,001 – ₹1,00,000", "Above ₹1,00,000"]
+    },
+    {
+        "key": "existing_loan",
+        "text": "4. Existing Loan / EMI?",
+        "choices": ["No Existing Loan", "₹5,000 – ₹10,000", "₹10,001 – ₹25,000", "Above ₹25,000"]
+    },
+    {
+        "key": "cibil_score",
+        "text": "5. Approximate CIBIL Score?",
+        "choices": ["750 & above", "700 – 749", "650 – 699", "Not sure"]
+    },
+    {
+        "key": "property_type",
+        "text": "6. Property Type?",
+        "choices": ["Ready to Move", "Under Construction", "Plot + Construction", "Resale Property"]
+    },
+    {
+        "key": "property_value",
+        "text": "7. Property Value?",
+        "choices": ["₹40 – ₹50 Lakhs", "₹50 – ₹65 Lakhs", "Above ₹65 Lakhs"]
+    },
+    {
+        "key": "loan_required",
+        "text": "8. Loan Amount Required?",
+        "choices": ["₹40 Lakhs", "₹45 Lakhs", "₹50 Lakhs"]
+    },
+    {
+        "key": "down_payment",
+        "text": "9. Down Payment Ready?",
+        "choices": ["Yes (10–20%)", "Yes (20% & above)", "Not yet"]
+    },
+    {
+        "key": "property_city",
+        "text": "10. Location of Property City?",
+        "choices": ["Chennai", "Bengaluru", "Hyderabad", "Other City"]
+    }
+]
