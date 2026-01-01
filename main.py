@@ -1,9 +1,9 @@
-import os
 import json
 import logging
+import os
 
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 
 # --- Logging ---
 logging.basicConfig(
@@ -19,17 +19,22 @@ PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID", "YOUR_PHONE_NUMBER_ID")
 QUESTIONS_FILE = "questions_master.json"
 ANSWERS_FILE = "loan_user_answers_session.jsonl"
 
+
 def load_questions():
     with open(QUESTIONS_FILE, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
 QUESTIONS = load_questions()
 
 USER_STATES = {}
+
 
 # --- Health/Meta platform verification GET ---
 @app.route("/", methods=["GET"])
 def health():
     return "Webhook is live 🚀"
+
 
 @app.route("/webhook", methods=["GET"])
 def verify_webhook():
@@ -42,6 +47,7 @@ def verify_webhook():
         return challenge, 200
     logger.warning("Webhook verification failed")
     return "Forbidden", 403
+
 
 # --- Main WhatsApp webhook POST ---
 @app.route("/webhook", methods=["POST"])
@@ -61,12 +67,34 @@ def receive_message():
 
             # --- DETERMINE what kind of reply user sent
             msg_type = message.get("type")
+
             if msg_type == "button":
-                text = message.get("button", {}).get("text") or message.get("text", {}).get("body")
+                # Button reply: user clicked a button
+                text = (
+                    (message.get("button") or {}).get("text")
+                    or (message.get("text") or {}).get(
+                        "body"
+                    )  # sometimes redundant, but adds safety
+                    or ""
+                )
             elif msg_type == "list_reply":
-                text = message.get("list_reply", {}).get("title")
+                # List reply: user picked from a list
+                text = (message.get("list_reply") or {}).get("title") or ""
+            elif message.get("text") and message["text"].get("body") is not None:
+                # Standard WhatsApp text message
+                text = message["text"]["body"].strip()
             else:
-                text = message.get("text", {}).get("body").strip()
+                # Fallback for unrecognized/no text
+                text = ""
+
+            # --- DETERMINE what kind of reply user sent
+            # msg_type = message.get("type")
+            # if msg_type == "button":
+            #     text = message.get("button", {}).get("text") or message.get("text", {}).get("body")
+            # elif msg_type == "list_reply":
+            #     text = message.get("list_reply", {}).get("title")
+            # else:
+            #     text = message.get("text", {}).get("body").strip()
 
             logger.info(f"Sender: {sender}")
             logger.info(f"Text received: {text} (msg type: {msg_type})")
@@ -89,7 +117,12 @@ def receive_message():
                     send_question(sender, idx)
                 else:
                     store_user_answers(sender, state["answers"])
-                    summary = "\n".join([f"{i+1}. {a['key'].replace('_',' ').title()}: {a['answer']}" for i,a in enumerate(state["answers"])])
+                    summary = "\n".join(
+                        [
+                            f"{i+1}. {a['key'].replace('_',' ').title()}: {a['answer']}"
+                            for i, a in enumerate(state["answers"])
+                        ]
+                    )
                     reply = "Thank you! Your application is submitted:\n\n" + summary
                     send_whatsapp_message(sender, reply)
                     del USER_STATES[sender]
@@ -99,6 +132,7 @@ def receive_message():
     except Exception:
         logger.exception("Error processing message")
     return jsonify({"status": "received"}), 200
+
 
 # --- Helpers for sending WhatsApp questions as interactive messages ---
 def send_question(to, idx):
@@ -110,13 +144,12 @@ def send_question(to, idx):
     else:
         send_whatsapp_list(to, q["text"], choices)
 
+
 def send_whatsapp_buttons(to, question, choices):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     buttons = [
-        {
-            "type": "reply",
-            "reply": {"id": f"choice_{i}", "title": c}
-        } for i, c in enumerate(choices, 1)
+        {"type": "reply", "reply": {"id": f"choice_{i}", "title": c}}
+        for i, c in enumerate(choices, 1)
     ]
     payload = {
         "messaging_product": "whatsapp",
@@ -125,19 +158,22 @@ def send_whatsapp_buttons(to, question, choices):
         "interactive": {
             "type": "button",
             "body": {"text": question},
-            "action": {"buttons": buttons}
-        }
+            "action": {"buttons": buttons},
+        },
     }
     send_whatsapp_payload(payload, to)
 
+
 def send_whatsapp_list(to, question, choices):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    sections = [{
-        "title": "Options",
-        "rows": [
-            {"id": f"choice_{i}", "title": c} for i, c in enumerate(choices, 1)
-        ]
-    }]
+    sections = [
+        {
+            "title": "Options",
+            "rows": [
+                {"id": f"choice_{i}", "title": c} for i, c in enumerate(choices, 1)
+            ],
+        }
+    ]
     payload = {
         "messaging_product": "whatsapp",
         "to": to,
@@ -147,23 +183,18 @@ def send_whatsapp_list(to, question, choices):
             "header": {"type": "text", "text": "Select an answer below"},
             "body": {"text": question},
             "footer": {"text": "Tap to expand options"},
-            "action": {
-                "button": "Choose...",
-                "sections": sections
-            }
-        }
+            "action": {"button": "Choose...", "sections": sections},
+        },
     }
     send_whatsapp_payload(payload, to)
+
 
 def send_whatsapp_message(to, text):
     """Send plain WhatsApp text message."""
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to,
-        "text": {"body": text}
-    }
+    payload = {"messaging_product": "whatsapp", "to": to, "text": {"body": text}}
     send_whatsapp_payload(payload, to)
+
 
 def send_whatsapp_payload(payload, to):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
@@ -176,6 +207,7 @@ def send_whatsapp_payload(payload, to):
         logger.info(f"WhatsApp [{to}] resp: {resp.status_code} {resp.text}")
     except Exception as e:
         logger.error(f"Failed to send WhatsApp message to [{to}]: {e}")
+
 
 # --- AI fallback answer ---
 def ai_reply(text):
@@ -191,11 +223,13 @@ def ai_reply(text):
     else:
         return "Type 'loan' to check home loan eligibility."
 
+
 # --- File storage on completion ---
 def store_user_answers(phone, answers):
     entry = {"phone": phone, "answers": answers}
     with open(ANSWERS_FILE, "a", encoding="utf-8") as f:
         f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
 
 # --- Start Flask app ---
 if __name__ == "__main__":
