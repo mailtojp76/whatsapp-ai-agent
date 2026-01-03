@@ -3,6 +3,7 @@ import logging
 import os
 
 import psycopg2
+import requests
 from flask import Flask, jsonify, request
 from psycopg2.extras import Json
 
